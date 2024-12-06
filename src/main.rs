@@ -9,7 +9,9 @@ use revm::{
     EVM,
 };
 use std::{collections::BTreeSet, str::FromStr, sync::Arc};
-
+use ethers_core::types::U64;
+use ethers_core::utils::Units::Gwei;
+use ethers_providers::Http;
 use foundry_evm_mini::evm::executor::{
     fork::{BlockchainDb, BlockchainDbMeta, SharedBackend},
     inspector::{get_precompiles_for, AccessListTracer},
@@ -18,8 +20,12 @@ use foundry_evm_mini::evm::executor::{
 #[tokio::main]
 async fn main() -> Result<()> {
     let wss_url = "wss://eth-mainnet.g.alchemy.com/v2/ainc64D6aQZ6i7QwDkYqUkSVj754iwGz";
-    let ws = Ws::connect(wss_url).await.unwrap();
-    let provider = Arc::new(Provider::new(ws));
+    // let ws = Ws::connect(wss_url).await.unwrap();
+
+    let provider: Provider<Http> = Provider::<Http>::try_from("https://bsc-dataseed.binance.org/")
+        .expect("could not instantiate HTTP Provider");
+    let provider: Arc<Provider<Http>> = Arc::new(provider.clone());
+    // let provider = Arc::new(Provider::new(ws));
 
     let block = provider
         .get_block(BlockNumber::Latest)
@@ -47,6 +53,7 @@ async fn main() -> Result<()> {
     evm.env.cfg.limit_contract_code_size = Some(0x100000);
     evm.env.cfg.disable_block_gas_limit = true;
     evm.env.cfg.disable_base_fee = true;
+    evm.env.cfg.chain_id = 56;
 
     evm.env.block.number = rU256::from(block.number.unwrap().as_u64() + 1);
 
@@ -54,19 +61,23 @@ async fn main() -> Result<()> {
         "function getPair(address,address) external view returns (address)",
     ])?);
 
-    let factory = H160::from_str("0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f").unwrap();
-    let weth = H160::from_str("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").unwrap();
-    let usdt = H160::from_str("0xdac17f958d2ee523a2206206994597c13d831ec7").unwrap();
+    let factory = H160::from_str("0xca143ce32fe78f1f7019d7d551a6402fc5350c73").unwrap();
+    let weth = H160::from_str("0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c").unwrap();
+    let usdt = H160::from_str("0x55d398326f99059ff775485246999027b3197955").unwrap();
 
     let calldata = uniswap_v2_factory.encode("getPair", (weth, usdt))?;
 
-    evm.env.tx.caller = H160::from_str("0xD90Ed9c2679C6a9EA85A89F9af0b7b0690D530B6")
+    evm.env.tx.caller = H160::from_str("0x91450cBfADD98984f77A9fC2FE48e4dA0ae0eEa2")
         .unwrap()
         .into();
     evm.env.tx.transact_to = TransactTo::Call(factory.into());
     evm.env.tx.data = calldata.0;
     evm.env.tx.value = rU256::ZERO;
     evm.env.tx.gas_limit = 5000000;
+    // evm.env.tx.gas_price = rU256::from(1000000000_u64);
+    evm.env.tx.chain_id = Some(56);
+
+    println!("{:?}", evm.env);
 
     let ref_tx = evm.transact_ref()?;
     let result = ref_tx.result;

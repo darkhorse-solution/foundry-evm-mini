@@ -21,7 +21,7 @@ use futures::{
 };
 use revm::{
     db::DatabaseRef,
-    primitives::{AccountInfo, Bytecode, B160, B256, KECCAK_EMPTY, U256 as rU256},
+    primitives::{AccountInfo, Bytecode, Address as rAddress, B256, KECCAK_EMPTY, U256 as rU256},
 };
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
@@ -661,7 +661,7 @@ impl SharedBackend {
 impl DatabaseRef for SharedBackend {
     type Error = DatabaseError;
 
-    fn basic(&self, address: B160) -> Result<Option<AccountInfo>, Self::Error> {
+    fn basic(&self, address: rAddress) -> Result<Option<AccountInfo>, Self::Error> {
         trace!( target: "sharedbackend", "request basic {:?}", address);
         self.do_get_basic(b160_to_h160(address)).map_err(|err| {
             error!(target: "sharedbackend",  ?err, ?address,  "Failed to send/recv `basic`");
@@ -676,7 +676,7 @@ impl DatabaseRef for SharedBackend {
         Err(DatabaseError::MissingCode(b256_to_h256(hash)))
     }
 
-    fn storage(&self, address: B160, index: rU256) -> Result<rU256, Self::Error> {
+    fn storage(&self, address: rAddress, index: rU256) -> Result<rU256, Self::Error> {
         trace!( target: "sharedbackend", "request storage {:?} at {:?}", address, index);
         match self.do_get_storage(b160_to_h160(address), index.into()).map_err(|err| {
             error!( target: "sharedbackend", ?err, ?address, ?index, "Failed to send/recv `storage`");
